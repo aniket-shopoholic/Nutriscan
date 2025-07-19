@@ -1,71 +1,211 @@
 {
-  "name": "NutriScanPro",
-  "version": "0.0.1",
+  "name": "nutriscan-pro",
+  "version": "1.0.0",
+  "description": "Revolutionary React Native app for AI-powered food scanning and nutrition tracking with 3D portion estimation",
+  "main": "index.js",
   "private": true,
+  "author": {
+    "name": "NutriScan Pro Team",
+    "email": "dev@nutriscanpro.com",
+    "url": "https://nutriscanpro.com"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/aniket-shopoholic/Nutriscan#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aniket-shopoholic/Nutriscan.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aniket-shopoholic/Nutriscan/issues"
+  },
+  "keywords": [
+    "react-native",
+    "nutrition",
+    "food-scanning",
+    "ai",
+    "health",
+    "fitness",
+    "calorie-tracking",
+    "3d-analysis",
+    "stripe",
+    "firebase"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
   "scripts": {
-    "android": "react-native run-android",
-    "ios": "react-native run-ios",
-    "lint": "eslint .",
     "start": "react-native start",
-    "test": "jest"
+    "start:reset": "react-native start --reset-cache",
+    "android": "react-native run-android",
+    "android:release": "react-native run-android --variant=release",
+    "ios": "react-native run-ios",
+    "ios:release": "react-native run-ios --configuration Release",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:ci": "jest --ci --coverage --watchAll=false",
+    "test:e2e": "detox test",
+    "test:e2e:build": "detox build",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
+    "type-check": "tsc --noEmit",
+    "clean": "react-native clean-project-auto",
+    "clean:android": "cd android && ./gradlew clean && cd ..",
+    "clean:ios": "cd ios && xcodebuild clean && cd ..",
+    "build:android": "cd android && ./gradlew assembleRelease && cd ..",
+    "build:ios": "cd ios && xcodebuild -workspace NutriScanPro.xcworkspace -scheme NutriScanPro -configuration Release && cd ..",
+    "bundle:android": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res",
+    "bundle:ios": "react-native bundle --platform ios --dev false --entry-file index.js --bundle-output ios/main.jsbundle --assets-dest ios",
+    "postinstall": "cd ios && pod install && cd ..",
+    "pods": "cd ios && pod install && cd ..",
+    "pods:update": "cd ios && pod update && cd ..",
+    "adb:reverse": "adb reverse tcp:8081 tcp:8081",
+    "adb:devices": "adb devices",
+    "flipper": "npx flipper",
+    "doctor": "react-native doctor",
+    "info": "react-native info",
+    "log:android": "react-native log-android",
+    "log:ios": "react-native log-ios",
+    "prepare": "husky install",
+    "pre-commit": "lint-staged",
+    "release": "semantic-release",
+    "release:dry": "semantic-release --dry-run",
+    "analyze:bundle": "npx react-native-bundle-visualizer",
+    "analyze:deps": "npx depcheck",
+    "security:audit": "npm audit",
+    "security:fix": "npm audit fix",
+    "docs:generate": "typedoc --out docs/api src",
+    "docs:serve": "cd docs && python -m http.server 8000"
   },
   "dependencies": {
-    "@invertase/react-native-apple-authentication": "^2.4.1",
-    "@react-native-firebase/analytics": "^22.4.0",
-    "@react-native-firebase/app": "^22.4.0",
-    "@react-native-firebase/auth": "^22.4.0",
-    "@react-native-firebase/crashlytics": "^22.4.0",
-    "@react-native-firebase/firestore": "^22.4.0",
-    "@react-native-google-signin/google-signin": "^15.0.0",
-    "@react-native/new-app-screen": "0.80.1",
-    "@react-navigation/bottom-tabs": "^7.4.2",
-    "@react-navigation/native": "^7.1.14",
-    "@react-navigation/native-stack": "^7.3.21",
-    "@reduxjs/toolkit": "^2.8.2",
-    "@stripe/stripe-react-native": "^0.50.0",
+    "@react-native-async-storage/async-storage": "^1.19.5",
+    "@react-native-firebase/analytics": "^18.6.2",
+    "@react-native-firebase/app": "^18.6.2",
+    "@react-native-firebase/auth": "^18.6.2",
+    "@react-native-firebase/crashlytics": "^18.6.2",
+    "@react-native-firebase/firestore": "^18.6.2",
+    "@react-native-google-signin/google-signin": "^10.1.0",
+    "@react-navigation/bottom-tabs": "^6.5.11",
+    "@react-navigation/native": "^6.1.9",
+    "@react-navigation/stack": "^6.3.20",
+    "@reduxjs/toolkit": "^2.0.1",
+    "@stripe/stripe-react-native": "^0.35.0",
+    "@tensorflow/tfjs": "^4.15.0",
+    "@tensorflow/tfjs-react-native": "^0.8.0",
     "crypto-js": "^4.2.0",
-    "react": "19.1.0",
-    "react-native": "0.80.1",
-    "react-native-background-job": "^2.3.1",
-    "react-native-config": "^1.5.5",
-    "react-native-device-info": "^14.0.4",
+    "react": "18.2.0",
+    "react-native": "0.72.7",
+    "react-native-background-job": "^1.2.4",
+    "react-native-camera-kit": "^13.0.0",
+    "react-native-device-info": "^10.11.0",
     "react-native-encrypted-storage": "^4.0.3",
-    "react-native-image-picker": "^8.2.1",
+    "react-native-gesture-handler": "^2.14.0",
+    "react-native-image-picker": "^7.0.3",
     "react-native-linear-gradient": "^2.8.3",
-    "react-native-paper": "^5.14.5",
-    "react-native-safe-area-context": "^5.5.2",
-    "react-native-screens": "^4.13.1",
-    "react-native-svg": "^15.12.0",
-    "react-native-vector-icons": "^10.2.0",
-    "react-native-vision-camera": "^4.7.1",
-    "react-redux": "^9.2.0",
-    "victory-native": "^41.17.4"
+    "react-native-paper": "^5.11.6",
+    "react-native-reanimated": "^3.6.2",
+    "react-native-safe-area-context": "^4.8.2",
+    "react-native-screens": "^3.29.0",
+    "react-native-svg": "^14.1.0",
+    "react-native-vector-icons": "^10.0.3",
+    "react-native-vision-camera": "^3.6.17",
+    "react-redux": "^9.0.4",
+    "victory-native": "^36.8.6"
   },
   "devDependencies": {
-    "@babel/core": "^7.25.2",
-    "@babel/preset-env": "^7.25.3",
-    "@babel/runtime": "^7.25.0",
-    "@react-native-community/cli": "19.0.0",
-    "@react-native-community/cli-platform-android": "19.0.0",
-    "@react-native-community/cli-platform-ios": "19.0.0",
-    "@react-native/babel-preset": "0.80.1",
-    "@react-native/eslint-config": "0.80.1",
-    "@react-native/metro-config": "0.80.1",
-    "@react-native/typescript-config": "0.80.1",
-    "@types/crypto-js": "^4.2.2",
-    "@types/jest": "^29.5.13",
-    "@types/react": "^19.1.0",
-    "@types/react-test-renderer": "^19.1.0",
+    "@babel/core": "^7.20.0",
+    "@babel/preset-env": "^7.20.0",
+    "@babel/runtime": "^7.20.0",
+    "@react-native/eslint-config": "^0.72.2",
+    "@react-native/metro-config": "^0.72.11",
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react-native": "^12.4.2",
+    "@types/crypto-js": "^4.2.1",
+    "@types/jest": "^29.2.1",
+    "@types/react": "^18.0.24",
+    "@types/react-native": "^0.72.8",
+    "@types/react-test-renderer": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.2",
+    "@typescript-eslint/parser": "^6.13.2",
+    "babel-jest": "^29.2.1",
+    "detox": "^20.13.5",
     "eslint": "^8.19.0",
-    "eslint-plugin-import": "^2.32.0",
-    "eslint-plugin-jsx-a11y": "^6.10.2",
-    "eslint-plugin-security": "^3.0.1",
-    "jest": "^29.6.3",
-    "prettier": "2.8.8",
-    "react-test-renderer": "19.1.0",
-    "typescript": "5.0.4"
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-native": "^4.1.0",
+    "eslint-plugin-security": "^1.7.1",
+    "husky": "^8.0.3",
+    "jest": "^29.2.1",
+    "jest-environment-jsdom": "^30.0.4",
+    "lint-staged": "^15.2.0",
+    "metro-react-native-babel-preset": "0.76.8",
+    "prettier": "^2.4.1",
+    "react-test-renderer": "18.2.0",
+    "semantic-release": "^22.0.8",
+    "typedoc": "^0.25.4",
+    "typescript": "4.8.4"
   },
-  "engines": {
-    "node": ">=18"
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "pre-push": "npm run test:ci"
+    }
+  },
+  "detox": {
+    "testRunner": "jest",
+    "runnerConfig": "e2e/config.json",
+    "configurations": {
+      "ios.sim.debug": {
+        "binaryPath": "ios/build/Build/Products/Debug-iphonesimulator/NutriScanPro.app",
+        "build": "xcodebuild -workspace ios/NutriScanPro.xcworkspace -scheme NutriScanPro -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build",
+        "type": "ios.simulator",
+        "device": {
+          "type": "iPhone 14"
+        }
+      },
+      "android.emu.debug": {
+        "binaryPath": "android/app/build/outputs/apk/debug/app-debug.apk",
+        "build": "cd android && ./gradlew assembleDebug assembleAndroidTest -DtestBuildType=debug && cd ..",
+        "type": "android.emulator",
+        "device": {
+          "avdName": "Pixel_4_API_30"
+        }
+      }
+    }
+  },
+  "release": {
+    "branches": [
+      "main",
+      "next"
+    ],
+    "plugins": [
+      "@semantic-release/commit-analyzer",
+      "@semantic-release/release-notes-generator",
+      "@semantic-release/changelog",
+      "@semantic-release/npm",
+      "@semantic-release/github"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
   }
 }
