@@ -1,350 +1,448 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
-  TouchableOpacity,
+  RefreshControl,
+  Dimensions,
+  Alert,
 } from 'react-native';
-import { Card, ProgressBar, Button, FAB } from 'react-native-paper';
-import { useSelector } from 'react-redux';
+import { useTheme, FAB, Snackbar } from 'react-native-paper';
+import { useSelector, useDispatch } from 'react-redux';
+import { useFocusEffect } from '@react-navigation/native';
+
+import CalorieRing from '../components/dashboard/CalorieRing';
+import WaterTracker from '../components/dashboard/WaterTracker';
+import MoodTracker from '../components/dashboard/MoodTracker';
+import NutritionSummary from '../components/dashboard/NutritionSummary';
+import { LoadingSpinner, ErrorMessage } from '../components/common';
+
 import { RootState } from '../store';
-import { COLORS, MOOD_SCALE } from '../constants';
+import { updateNutritionData, updateWaterIntake, updateMoodEntry } from '../store/slices/nutritionSlice';
+import { DailyStats, MoodRating, MealEntry } from '../types';
+import { logger } from '../utils/logger';
+import { performanceMonitor } from '../utils/performance';
 
-const DashboardScreen: React.FC = () => {
-  const { dailyEntries, waterIntake, dailyGoals } = useSelector((state: RootState) => state.nutrition);
+interface DashboardScreenProps {
+  navigation: any;
+}
+
+const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
+  const theme = useTheme();
+  const dispatch = useDispatch();
+  const { width: screenWidth } = Dimensions.get('window');
+
+  // Redux state
   const { user } = useSelector((state: RootState) => state.auth);
-  const { currentTier, dailyScansUsed } = useSelector((state: RootState) => state.subscription);
+  const { 
+    dailyStats, 
+    isLoading, 
+    error,
+    lastUpdated 
+  } = useSelector((state: RootState) => state.nutrition);
 
-  // Calculate daily totals
-  const dailyTotals = dailyEntries.reduce(
-    (totals, entry) => ({
-      calories: totals.calories + entry.nutrition.calories,
-      protein: totals.protein + entry.nutrition.protein,
-      carbs: totals.carbs + entry.nutrition.carbs,
-      fat: totals.fat + entry.nutrition.fat,
-    }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+  // Local state
+  const [refreshing, setRefreshing] = useState(false);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [activeTab, setActiveTab] = useState<'overview' | 'details'>('overview');
+
+  // Performance monitoring
+  const renderTimer = React.useRef<() => void>();
+
+  useEffect(() => {
+    renderTimer.current = performanceMonitor.startTimer('dashboard_render');
+    return () => {
+      if (renderTimer.current) {
+        renderTimer.current();
+      }
+    };
+  }, []);
+
+  // Focus effect to refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (!dailyStats || isDataStale()) {
+        loadDashboardData();
+      }
+      
+      logger.logUserAction('dashboard_viewed', {
+        hasData: !!dailyStats,
+        component: 'DashboardScreen',
+      });
+    }, [dailyStats])
   );
 
-  const calorieProgress = dailyTotals.calories / dailyGoals.calories;
-  const proteinProgress = dailyTotals.protein / dailyGoals.protein;
-  const carbProgress = dailyTotals.carbs / dailyGoals.carbs;
-  const fatProgress = dailyTotals.fat / dailyGoals.fat;
-  const waterProgress = waterIntake / dailyGoals.water;
+  // Check if data is stale (older than 5 minutes)
+  const isDataStale = useCallback((): boolean => {
+    if (!lastUpdated) return true;
+    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+    return new Date(lastUpdated).getTime() < fiveMinutesAgo;
+  }, [lastUpdated]);
 
-  const renderCalorieRing = () => (
-    <Card style={styles.calorieCard}>
-      <Card.Content style={styles.calorieContent}>
-        <View style={styles.calorieRing}>
-          <Text style={styles.calorieNumber}>{dailyTotals.calories}</Text>
-          <Text style={styles.calorieLabel}>calories</Text>
-          <Text style={styles.calorieRemaining}>
-            {Math.max(0, dailyGoals.calories - dailyTotals.calories)} remaining
-          </Text>
-        </View>
-        <ProgressBar
-          progress={Math.min(calorieProgress, 1)}
-          color={calorieProgress > 1 ? COLORS.warning : COLORS.primary}
-          style={styles.progressBar}
-        />
-      </Card.Content>
-    </Card>
-  );
+  // Load dashboard data
+  const loadDashboardData = useCallback(async () => {
+    if (!user) return;
 
-  const renderMacroCard = (
-    title: string,
-    current: number,
-    goal: number,
-    unit: string,
-    color: string
-  ) => (
-    <Card style={styles.macroCard}>
-      <Card.Content>
-        <Text style={styles.macroTitle}>{title}</Text>
-        <Text style={styles.macroValue}>
-          {Math.round(current)}{unit}
-        </Text>
-        <ProgressBar
-          progress={Math.min(current / goal, 1)}
-          color={color}
-          style={styles.macroProgress}
-        />
-        <Text style={styles.macroGoal}>Goal: {goal}{unit}</Text>
-      </Card.Content>
-    </Card>
-  );
+    try {
+      const timer = performanceMonitor.startTimer('dashboard_data_load');
+      
+      // Dispatch action to load nutrition data
+      await dispatch(updateNutritionData({
+        userId: user.id,
+        date: new Date().toISOString().split('T')[0],
+      })).unwrap();
 
-  const renderQuickActions = () => (
-    <Card style={styles.actionCard}>
-      <Card.Content>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.actionButtons}>
-          <Button
-            mode="outlined"
-            onPress={() => {}}
-            style={styles.actionButton}
-            icon="camera"
-          >
-            Scan Food
-          </Button>
-          <Button
-            mode="outlined"
-            onPress={() => {}}
-            style={styles.actionButton}
-            icon="microphone"
-          >
-            Voice Log
-          </Button>
-          <Button
-            mode="outlined"
-            onPress={() => {}}
-            style={styles.actionButton}
-            icon="water"
-          >
-            Add Water
-          </Button>
-        </View>
-      </Card.Content>
-    </Card>
-  );
-
-  const renderMoodTracker = () => (
-    <Card style={styles.moodCard}>
-      <Card.Content>
-        <Text style={styles.sectionTitle}>How are you feeling?</Text>
-        <View style={styles.moodButtons}>
-          {MOOD_SCALE.map((mood) => (
-            <TouchableOpacity
-              key={mood.value}
-              style={styles.moodButton}
-              onPress={() => {}}
-            >
-              <Text style={styles.moodEmoji}>{mood.emoji}</Text>
-              <Text style={styles.moodLabel}>{mood.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </Card.Content>
-    </Card>
-  );
-
-  const renderSubscriptionStatus = () => {
-    if (currentTier === 'basic') {
-      return (
-        <Card style={styles.subscriptionCard}>
-          <Card.Content>
-            <Text style={styles.subscriptionTitle}>Free Plan</Text>
-            <Text style={styles.subscriptionText}>
-              {dailyScansUsed}/5 daily scans used
-            </Text>
-            <ProgressBar
-              progress={dailyScansUsed / 5}
-              color={dailyScansUsed >= 5 ? COLORS.error : COLORS.primary}
-              style={styles.subscriptionProgress}
-            />
-            <Button
-              mode="contained"
-              onPress={() => {}}
-              style={styles.upgradeButton}
-              buttonColor={COLORS.secondary}
-            >
-              Upgrade to Premium
-            </Button>
-          </Card.Content>
-        </Card>
-      );
+      timer();
+      
+      logger.info('Dashboard data loaded successfully', {
+        userId: user.id,
+        component: 'DashboardScreen',
+      });
+    } catch (error) {
+      logger.error('Failed to load dashboard data', error as Error, {
+        userId: user?.id,
+        component: 'DashboardScreen',
+      });
+      
+      showSnackbar('Failed to load dashboard data. Please try again.');
     }
-    return null;
-  };
+  }, [user, dispatch]);
+
+  // Handle refresh
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadDashboardData();
+    setRefreshing(false);
+  }, [loadDashboardData]);
+
+  // Handle water intake update
+  const handleWaterIntakeUpdate = useCallback(async (amount: number) => {
+    if (!user) return;
+
+    try {
+      await dispatch(updateWaterIntake({
+        userId: user.id,
+        amount,
+        timestamp: new Date().toISOString(),
+      })).unwrap();
+
+      logger.logUserAction('water_intake_updated', {
+        amount,
+        component: 'DashboardScreen',
+      });
+    } catch (error) {
+      logger.error('Failed to update water intake', error as Error, {
+        amount,
+        component: 'DashboardScreen',
+      });
+      
+      showSnackbar('Failed to update water intake. Please try again.');
+    }
+  }, [user, dispatch]);
+
+  // Handle mood update
+  const handleMoodUpdate = useCallback(async (mood: MoodRating, note?: string) => {
+    if (!user) return;
+
+    try {
+      await dispatch(updateMoodEntry({
+        userId: user.id,
+        mood,
+        note,
+        timestamp: new Date().toISOString(),
+      })).unwrap();
+
+      showSnackbar(`Mood logged: ${['😢', '😕', '😐', '😊', '😄'][mood - 1]}`);
+      
+      logger.logUserAction('mood_updated', {
+        mood,
+        hasNote: !!note,
+        component: 'DashboardScreen',
+      });
+    } catch (error) {
+      logger.error('Failed to update mood', error as Error, {
+        mood,
+        component: 'DashboardScreen',
+      });
+      
+      showSnackbar('Failed to log mood. Please try again.');
+    }
+  }, [user, dispatch]);
+
+  // Handle meal press
+  const handleMealPress = useCallback((meal: MealEntry) => {
+    navigation.navigate('MealDetails', { mealId: meal.id });
+  }, [navigation]);
+
+  // Handle nutrient press
+  const handleNutrientPress = useCallback((nutrient: string) => {
+    navigation.navigate('NutrientDetails', { nutrient });
+  }, [navigation]);
+
+  // Handle scan navigation
+  const handleScanPress = useCallback(() => {
+    navigation.navigate('Scanner');
+  }, [navigation]);
+
+  // Show snackbar message
+  const showSnackbar = useCallback((message: string) => {
+    setSnackbarMessage(message);
+    setSnackbarVisible(true);
+  }, []);
+
+  // Get greeting based on time of day
+  const getGreeting = useCallback((): string => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }, []);
+
+  // Render loading state
+  if (isLoading && !dailyStats) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <LoadingSpinner size="large" />
+        <Text style={[styles.loadingText, { color: theme.colors.onSurface }]}>
+          Loading your nutrition data...
+        </Text>
+      </View>
+    );
+  }
+
+  // Render error state
+  if (error && !dailyStats) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ErrorMessage
+          message={error}
+          onRetry={loadDashboardData}
+          showRetry
+        />
+      </View>
+    );
+  }
+
+  // Render empty state
+  if (!dailyStats) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>
+          Welcome to NutriScan Pro!
+        </Text>
+        <Text style={[styles.emptySubtitle, { color: theme.colors.onSurfaceVariant }]}>
+          Start by scanning your first meal
+        </Text>
+        <FAB
+          icon="camera"
+          label="Scan Food"
+          onPress={handleScanPress}
+          style={[styles.emptyFab, { backgroundColor: theme.colors.primary }]}
+        />
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
+        }
+      >
+        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>
-            Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {user?.displayName || 'there'}!
+          <Text style={[styles.greeting, { color: theme.colors.onSurface }]}>
+            {getGreeting()}, {user?.displayName?.split(' ')[0] || 'there'}!
           </Text>
-          <Text style={styles.date}>
-            {new Date().toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
+          <Text style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
+            Here's your nutrition overview
           </Text>
         </View>
 
-        {renderSubscriptionStatus()}
-        {renderCalorieRing()}
-
-        <View style={styles.macroRow}>
-          {renderMacroCard('Protein', dailyTotals.protein, dailyGoals.protein, 'g', COLORS.secondary)}
-          {renderMacroCard('Carbs', dailyTotals.carbs, dailyGoals.carbs, 'g', COLORS.accent)}
+        {/* Calorie Ring */}
+        <View style={styles.section}>
+          <CalorieRing
+            progress={dailyStats.progress}
+            size={Math.min(screenWidth * 0.6, 240)}
+            animated
+          />
         </View>
 
-        <View style={styles.macroRow}>
-          {renderMacroCard('Fat', dailyTotals.fat, dailyGoals.fat, 'g', COLORS.warning)}
-          {renderMacroCard('Water', waterIntake, dailyGoals.water, ' glasses', COLORS.primary)}
+        {/* Quick Stats Row */}
+        <View style={styles.quickStats}>
+          <View style={[styles.quickStatItem, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.quickStatValue, { color: theme.colors.primary }]}>
+              {dailyStats.scanCount}
+            </Text>
+            <Text style={[styles.quickStatLabel, { color: theme.colors.onSurfaceVariant }]}>
+              Scans Today
+            </Text>
+          </View>
+          
+          <View style={[styles.quickStatItem, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.quickStatValue, { color: theme.colors.secondary }]}>
+              {Math.round(dailyStats.accuracyRate * 100)}%
+            </Text>
+            <Text style={[styles.quickStatLabel, { color: theme.colors.onSurfaceVariant }]}>
+              Accuracy
+            </Text>
+          </View>
+          
+          <View style={[styles.quickStatItem, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.quickStatValue, { color: theme.colors.tertiary }]}>
+              {dailyStats.meals.length}
+            </Text>
+            <Text style={[styles.quickStatLabel, { color: theme.colors.onSurfaceVariant }]}>
+              Meals
+            </Text>
+          </View>
         </View>
 
-        {renderQuickActions()}
-        {renderMoodTracker()}
+        {/* Water Tracker */}
+        <View style={styles.section}>
+          <WaterTracker
+            currentIntake={dailyStats.water}
+            dailyGoal={dailyStats.goals.water}
+            onIntakeUpdate={handleWaterIntakeUpdate}
+            showChart={false}
+            animated
+          />
+        </View>
+
+        {/* Mood Tracker */}
+        <View style={styles.section}>
+          <MoodTracker
+            currentMood={dailyStats.mood}
+            onMoodUpdate={handleMoodUpdate}
+            showChart={false}
+            showInsights={false}
+            animated
+          />
+        </View>
+
+        {/* Nutrition Summary */}
+        <View style={styles.section}>
+          <NutritionSummary
+            dailyStats={dailyStats}
+            onMealPress={handleMealPress}
+            onNutrientPress={handleNutrientPress}
+            showMacroBreakdown
+            showMealBreakdown
+            animated
+          />
+        </View>
+
+        {/* Bottom spacing for FAB */}
+        <View style={styles.bottomSpacing} />
       </ScrollView>
 
+      {/* Floating Action Button */}
       <FAB
         icon="camera"
-        style={styles.fab}
-        onPress={() => {}}
+        onPress={handleScanPress}
+        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
         label="Scan"
       />
-    </SafeAreaView>
+
+      {/* Snackbar */}
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+        style={{ backgroundColor: theme.colors.inverseSurface }}
+      >
+        {snackbarMessage}
+      </Snackbar>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
   },
   scrollView: {
     flex: 1,
-    padding: 16,
   },
   header: {
-    marginBottom: 20,
+    padding: 24,
+    paddingBottom: 16,
   },
   greeting: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+  },
+  section: {
+    marginBottom: 16,
+  },
+  quickStats: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    gap: 12,
+  },
+  quickStatItem: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    elevation: 1,
+  },
+  quickStatValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.text,
-  },
-  date: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    marginTop: 4,
-  },
-  calorieCard: {
-    marginBottom: 16,
-  },
-  calorieContent: {
-    alignItems: 'center',
-  },
-  calorieRing: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  calorieNumber: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
-  calorieLabel: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-  },
-  calorieRemaining: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginTop: 4,
-  },
-  progressBar: {
-    width: '100%',
-    height: 8,
-  },
-  macroRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
-  },
-  macroCard: {
-    flex: 1,
-  },
-  macroTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: COLORS.textSecondary,
     marginBottom: 4,
   },
-  macroValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 8,
-  },
-  macroProgress: {
-    height: 4,
-    marginBottom: 4,
-  },
-  macroGoal: {
+  quickStatLabel: {
     fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  actionCard: {
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 16,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionButton: {
-    flex: 1,
-  },
-  moodCard: {
-    marginBottom: 16,
-  },
-  moodButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  moodButton: {
-    alignItems: 'center',
-    padding: 8,
-  },
-  moodEmoji: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  moodLabel: {
-    fontSize: 10,
-    color: COLORS.textSecondary,
     textAlign: 'center',
   },
-  subscriptionCard: {
-    marginBottom: 16,
-    backgroundColor: COLORS.warning + '20',
-  },
-  subscriptionTitle: {
+  loadingText: {
     fontSize: 16,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptyTitle: {
+    fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.text,
+    textAlign: 'center',
     marginBottom: 8,
   },
-  subscriptionText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginBottom: 8,
+  emptySubtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 32,
   },
-  subscriptionProgress: {
-    height: 4,
-    marginBottom: 12,
-  },
-  upgradeButton: {
-    alignSelf: 'flex-start',
+  emptyFab: {
+    paddingHorizontal: 16,
   },
   fab: {
     position: 'absolute',
     margin: 16,
     right: 0,
     bottom: 0,
-    backgroundColor: COLORS.primary,
+  },
+  bottomSpacing: {
+    height: 80,
   },
 });
 
