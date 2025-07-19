@@ -1,205 +1,192 @@
-import 'react-native-gesture-handler/jestSetup';
+import '@testing-library/jest-native/extend-expect';
 import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/async-storage-mock';
 
-// Mock AsyncStorage
-jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
-
-// Mock React Native modules
+// Mock React Native native modules
 jest.mock('react-native', () => {
   const RN = jest.requireActual('react-native');
   return {
     ...RN,
+    NativeModules: {
+      ...RN.NativeModules,
+      SettingsManager: {
+        settings: {
+          AppleLocale: 'en_US',
+          AppleLanguages: ['en-US'],
+          // Add other settings as needed for your tests
+        },
+      },
+      PlatformConstants: {
+        getConstants: () => ({
+          is</tag>Testing: true,
+          reactNativeVersion: {
+            major: 0,
+            minor: 72,
+            patch: 7,
+            prerelease: null,
+          },
+          systemVersion: '17.0',
+          interfaceStyle: 'light',
+        }),
+      },
+      // Mock other native modules as needed
+    },
+    Platform: {
+      ...RN.Platform,
+      OS: 'ios', // or 'android' depending on your test needs
+      select: jest.fn((obj) => obj.ios), // or obj.android
+    },
     Alert: {
       alert: jest.fn(),
     },
-    Linking: {
-      openURL: jest.fn(),
-      canOpenURL: jest.fn(() => Promise.resolve(true)),
-    },
-    Platform: {
-      OS: 'ios',
-      Version: '14.0',
-      select: jest.fn((obj) => obj.ios),
-    },
-    Dimensions: {
-      get: jest.fn(() => ({ width: 375, height: 812 })),
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-    },
-    AppState: {
-      currentState: 'active',
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-    },
+    // Mock other components/APIs as needed
+    UIManager: RN.UIManager,
+    View: RN.View,
+    Text: RN.Text,
+    TextInput: RN.TextInput,
+    ScrollView: RN.ScrollView,
+    FlatList: RN.FlatList,
+    SectionList: RN.SectionList,
+    // Add other React Native components/APIs that are used in your app
   };
 });
 
-// Mock React Navigation
-jest.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({
-    navigate: jest.fn(),
-    goBack: jest.fn(),
-    dispatch: jest.fn(),
+// Mock TurboModuleRegistry for all native modules
+jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => ({
+  get: jest.fn((name: string) => {
+    if (name === 'SettingsManager') {
+      return {
+        settings: {
+          AppleLocale: 'en_US',
+          AppleLanguages: ['en-US'],
+        },
+      };
+    }
+    // Return a generic mock for other modules to prevent errors
+    return {};
   }),
-  useRoute: () => ({
-    params: {},
+  getEnforcing: jest.fn((name: string) => {
+    if (name === 'SettingsManager') {
+      return {
+        settings: {
+          AppleLocale: 'en_US',
+          AppleLanguages: ['en-US'],
+        },
+      };
+    }
+    // Return a generic mock for other modules to prevent errors
+    return {};
   }),
-  useFocusEffect: jest.fn(),
-  NavigationContainer: ({ children }: any) => children,
 }));
 
-jest.mock('@react-navigation/stack', () => ({
-  createStackNavigator: () => ({
-    Navigator: ({ children }: any) => children,
-    Screen: ({ children }: any) => children,
-  }),
-}));
-
-jest.mock('@react-navigation/bottom-tabs', () => ({
-  createBottomTabNavigator: () => ({
-    Navigator: ({ children }: any) => children,
-    Screen: ({ children }: any) => children,
-  }),
-}));
-
-// Mock React Native Paper
-jest.mock('react-native-paper', () => {
-  const RNPaper = jest.requireActual('react-native-paper');
-  return {
-    ...RNPaper,
-    useTheme: () => ({
-      colors: {
-        primary: '#6200EE',
-        secondary: '#03DAC6',
-        surface: '#FFFFFF',
-        background: '#F5F5F5',
-        error: '#B00020',
-        onSurface: '#000000',
-        onBackground: '#000000',
-        onPrimary: '#FFFFFF',
-        onSecondary: '#000000',
-        onError: '#FFFFFF',
-        primaryContainer: '#E8DEF8',
-        onPrimaryContainer: '#21005D',
-        secondaryContainer: '#B2F2FF',
-        onSecondaryContainer: '#001F24',
-        errorContainer: '#FFDAD6',
-        onErrorContainer: '#410002',
-        outline: '#79747E',
-        onSurfaceVariant: '#49454F',
-      },
-    }),
-  };
-});
-
-// Mock React Native Vector Icons
-jest.mock('react-native-vector-icons/MaterialCommunityIcons', () => 'Icon');
+// Mock AsyncStorage
+jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
 
 // Mock Firebase
 jest.mock('@react-native-firebase/app', () => ({
-  __esModule: true,
-  default: () => ({
-    onReady: jest.fn(() => Promise.resolve()),
-  }),
-}));
-
-jest.mock('@react-native-firebase/auth', () => ({
-  __esModule: true,
-  default: () => ({
-    currentUser: null,
-    signInWithEmailAndPassword: jest.fn(() => Promise.resolve()),
-    createUserWithEmailAndPassword: jest.fn(() => Promise.resolve()),
-    signOut: jest.fn(() => Promise.resolve()),
-    onAuthStateChanged: jest.fn(),
-  }),
-}));
-
-jest.mock('@react-native-firebase/firestore', () => ({
-  __esModule: true,
-  default: () => ({
-    collection: jest.fn(() => ({
-      doc: jest.fn(() => ({
-        set: jest.fn(() => Promise.resolve()),
-        get: jest.fn(() => Promise.resolve({ data: () => ({}) })),
-        update: jest.fn(() => Promise.resolve()),
-        delete: jest.fn(() => Promise.resolve()),
+  firebase: {
+    app: jest.fn(() => ({
+      analytics: jest.fn(() => ({
+        logEvent: jest.fn(),
+        setUserProperties: jest.fn(),
+        setUserId: jest.fn(),
+      })),
+      auth: jest.fn(() => ({
+        signInWithEmailAndPassword: jest.fn(),
+        createUserWithEmailAndPassword: jest.fn(),
+        signOut: jest.fn(),
+        onAuthStateChanged: jest.fn(),
+        currentUser: {
+          uid: 'test-uid',
+          email: 'test@example.com',
+          displayName: 'Test User',
+          sendEmailVerification: jest.fn(),
+          updateProfile: jest.fn(),
+        },
+      })),
+      firestore: jest.fn(() => ({
+        collection: jest.fn(() => ({
+          doc: jest.fn(() => ({
+            set: jest.fn(),
+            get: jest.fn(() => Promise.resolve({
+              exists: true,
+              data: () => ({}),
+            })),
+            update: jest.fn(),
+          })),
+          add: jest.fn(),
+        })),
+      })),
+      crashlytics: jest.fn(() => ({
+        recordError: jest.fn(),
+        log: jest.fn(),
       })),
     })),
-  }),
-}));
-
-jest.mock('@react-native-firebase/analytics', () => ({
-  __esModule: true,
-  default: () => ({
-    logEvent: jest.fn(() => Promise.resolve()),
-    setUserId: jest.fn(() => Promise.resolve()),
-    setUserProperty: jest.fn(() => Promise.resolve()),
-    setAnalyticsCollectionEnabled: jest.fn(() => Promise.resolve()),
-    resetAnalyticsData: jest.fn(() => Promise.resolve()),
-    setDefaultEventParameters: jest.fn(() => Promise.resolve()),
-    logScreenView: jest.fn(() => Promise.resolve()),
-  }),
-}));
-
-jest.mock('@react-native-firebase/crashlytics', () => ({
-  __esModule: true,
-  default: () => ({
-    recordError: jest.fn(),
-    log: jest.fn(),
-    setUserId: jest.fn(),
-    setAttribute: jest.fn(),
-    setAttributes: jest.fn(),
-  }),
+  },
 }));
 
 // Mock Stripe
 jest.mock('@stripe/stripe-react-native', () => ({
   useStripe: () => ({
-    initPaymentSheet: jest.fn(() => Promise.resolve({ error: null })),
-    presentPaymentSheet: jest.fn(() => Promise.resolve({ error: null })),
+    initPaymentSheet: jest.fn(),
+    presentPaymentSheet: jest.fn(),
+    confirmPaymentSheetPayment: jest.fn(),
   }),
   StripeProvider: ({ children }: any) => children,
 }));
 
-// Mock React Native Camera
+// Mock react-native-camera-kit
+jest.mock('react-native-camera-kit', () => ({
+  CameraScreen: 'CameraScreen',
+  Camera: {
+    requestCameraPermission: jest.fn(() => Promise.resolve(true)),
+    requestPhotoLibraryPermission: jest.fn(() => Promise.resolve(true)),
+  },
+}));
+
+// Mock react-native-vision-camera
 jest.mock('react-native-vision-camera', () => ({
+  useCameraDevices: jest.fn(() => ({})),
   Camera: 'Camera',
-  useCameraDevices: () => ({
-    back: { id: 'back' },
-    front: { id: 'front' },
-  }),
   useFrameProcessor: jest.fn(),
-  runOnJS: jest.fn(),
+  useSkiaFrameProcessor: jest.fn(),
+  useSharedValue: jest.fn(),
+  CameraDeviceFormat: jest.fn(),
+  CameraRuntimeError: jest.fn(),
+  CameraCaptureError: jest.fn(),
+  CameraPermissionStatus: jest.fn(),
+  sortFormats: jest.fn(),
+  getAvailableCameraDevices: jest.fn(() => Promise.resolve([])),
 }));
 
-// Mock TensorFlow
-jest.mock('@tensorflow/tfjs-react-native', () => ({
-  platform: jest.fn(),
-  ready: jest.fn(() => Promise.resolve()),
+// Mock react-native-image-picker
+jest.mock('react-native-image-picker', () => ({
+  launchImageLibrary: jest.fn(),
+  launchCamera: jest.fn(),
 }));
 
-// Mock React Native Device Info
+// Mock react-native-device-info
 jest.mock('react-native-device-info', () => ({
-  getVersion: jest.fn(() => '1.0.0'),
-  getBuildNumber: jest.fn(() => '1'),
-  getSystemVersion: jest.fn(() => '14.0'),
-  getModel: jest.fn(() => 'iPhone 12'),
-  getBrand: jest.fn(() => 'Apple'),
-  getDeviceId: jest.fn(() => 'test-device-id'),
-  isEmulator: jest.fn(() => Promise.resolve(false)),
+  getUniqueId: jest.fn(() => 'mock-unique-id'),
+  getDeviceId: jest.fn(() => 'mock-device-id'),
+  getManufacturer: jest.fn(() => 'mock-manufacturer'),
+  getModel: jest.fn(() => 'mock-model'),
+  getSystemName: jest.fn(() => 'mock-system-name'),
+  getSystemVersion: jest.fn(() => 'mock-system-version'),
+  getVersion: jest.fn(() => 'mock-app-version'),
+  getBuildNumber: jest.fn(() => 'mock-build-number'),
+  getBundleId: jest.fn(() => 'mock-bundle-id'),
+  getApplicationName: jest.fn(() => 'mock-app-name'),
+  getBrand: jest.fn(() => 'mock-brand'),
+  getReadableVersion: jest.fn(() => 'mock-readable-version'),
+  getIpAddress: jest.fn(() => Promise.resolve('192.168.1.1')),
+  getMacAddress: jest.fn(() => Promise.resolve('00:00:00:00:00:00')),
+  isEmulator: jest.fn(() => false),
+  isTablet: jest.fn(() => false),
   getBatteryLevel: jest.fn(() => Promise.resolve(0.8)),
-  getUsedMemory: jest.fn(() => Promise.resolve(1024)),
+  // Add other methods as needed
 }));
 
-// Mock React Native Background Job
-jest.mock('react-native-background-job', () => ({
-  start: jest.fn(() => 'job-id'),
-  stop: jest.fn(),
-  on: jest.fn(),
-  off: jest.fn(),
-}));
-
-// Mock Encrypted Storage
+// Mock react-native-encrypted-storage
 jest.mock('react-native-encrypted-storage', () => ({
   setItem: jest.fn(() => Promise.resolve()),
   getItem: jest.fn(() => Promise.resolve(null)),
@@ -207,82 +194,178 @@ jest.mock('react-native-encrypted-storage', () => ({
   clear: jest.fn(() => Promise.resolve()),
 }));
 
-// Mock Google Sign In
-jest.mock('@react-native-google-signin/google-signin', () => ({
-  GoogleSignin: {
-    configure: jest.fn(),
-    hasPlayServices: jest.fn(() => Promise.resolve(true)),
-    signIn: jest.fn(() => Promise.resolve({
-      user: {
-        id: 'test-user-id',
-        email: 'test@example.com',
-        name: 'Test User',
-      },
-    })),
-    signOut: jest.fn(() => Promise.resolve()),
-    isSignedIn: jest.fn(() => Promise.resolve(false)),
-    getCurrentUser: jest.fn(() => Promise.resolve(null)),
-  },
-}));
-
-// Mock Apple Authentication
-jest.mock('@invertase/react-native-apple-authentication', () => ({
-  AppleButton: 'AppleButton',
-  appleAuth: {
-    performRequest: jest.fn(() => Promise.resolve({
-      user: 'test-user-id',
-      email: 'test@example.com',
-      fullName: {
-        givenName: 'Test',
-        familyName: 'User',
-      },
-    })),
-    requestAsync: jest.fn(),
-  },
-}));
-
-// Mock React Native Linear Gradient
+// Mock react-native-linear-gradient
 jest.mock('react-native-linear-gradient', () => 'LinearGradient');
 
-// Mock React Native SVG
+// Mock react-native-svg
 jest.mock('react-native-svg', () => ({
   Svg: 'Svg',
   Circle: 'Circle',
   Path: 'Path',
   G: 'G',
   Text: 'Text',
+  Line: 'Line',
+  Rect: 'Rect',
+  Defs: 'Defs',
+  LinearGradient: 'LinearGradient',
+  Stop: 'Stop',
+  // Add other SVG components as needed
 }));
 
-// Mock Victory Native
-jest.mock('victory-native', () => ({
-  VictoryChart: 'VictoryChart',
-  VictoryLine: 'VictoryLine',
-  VictoryArea: 'VictoryArea',
-  VictoryPie: 'VictoryPie',
-  VictoryBar: 'VictoryBar',
-  VictoryAxis: 'VictoryAxis',
-  VictoryTheme: {
-    material: {},
+// Mock react-native-vector-icons
+jest.mock('react-native-vector-icons/MaterialCommunityIcons', () => 'Icon');
+jest.mock('react-native-vector-icons/Ionicons', () => 'Icon');
+
+// Mock @invertase/react-native-apple-authentication
+jest.mock('@invertase/react-native-apple-authentication', () => ({
+  AppleButton: 'AppleButton',
+  appleAuth: {
+    performRequest: jest.fn(() => Promise.resolve({
+      fullName: { givenName: 'Test', familyName: 'User' },
+      email: 'test@apple.com',
+      user: 'apple-test-user-id',
+      identityToken: 'mock-identity-token',
+      authorizationCode: 'mock-authorization-code',
+    })),
+    getCredentialStateForUser: jest.fn(() => Promise.resolve(1)), // 1 for authorized
   },
 }));
 
-// Global test utilities
-global.console = {
-  ...console,
-  // Suppress console.warn and console.error in tests unless explicitly needed
-  warn: jest.fn(),
-  error: jest.fn(),
+// Mock react-native-background-job
+jest.mock('react-native-background-job', () => ({
+  schedule: jest.fn(),
+  cancelAll: jest.fn(),
+  // Add other methods as needed
+}));
+
+// Mock @tensorflow/tfjs-react-native
+jest.mock('@tensorflow/tfjs-react-native', () => ({
+  bundleResourceIO: jest.fn(),
+  fetch: jest.fn(),
+  decodeJpeg: jest.fn(),
+  decodePng: jest.fn(),
+  // Add other methods as needed
+}));
+
+// Mock @tensorflow/tfjs
+jest.mock('@tensorflow/tfjs', () => ({
+  loadGraphModel: jest.fn(() => Promise.resolve({})),
+  tensor3d: jest.fn(),
+  image: {
+    resizeBilinear: jest.fn(),
+    toPixels: jest.fn(),
+  },
+  // Add other methods as needed
+}));
+
+// Mock victory-native
+jest.mock('victory-native', () => ({
+  VictoryPie: 'VictoryPie',
+  VictoryChart: 'VictoryChart',
+  VictoryAxis: 'VictoryAxis',
+  VictoryBar: 'VictoryBar',
+  VictoryLine: 'VictoryLine',
+  VictoryLabel: 'VictoryLabel',
+  VictoryTheme: { material: {} },
+  // Add other Victory components as needed
+}));
+
+// Mock react-native-reanimated
+jest.mock('react-native-reanimated', () => {
+  const Reanimated = jest.requireActual('react-native-reanimated/mock');
+
+  // The mock for `call` immediately calls the callback, which is not always the behavior we want.
+  // Instead, we want to mock it to return a no-op function.
+  Reanimated.default.call = () => {};
+
+  return Reanimated;
+});
+
+// Mock react-native-gesture-handler
+jest.mock('react-native-gesture-handler', () => {
+  const GestureHandler = jest.requireActual('react-native-gesture-handler');
+  return {
+    ...GestureHandler,
+    GestureHandlerRootView: 'View',
+  };
+});
+
+// Mock react-native-safe-area-context
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  SafeAreaProvider: ({ children }: any) => children,
+}));
+
+// Mock react-native-screens
+jest.mock('react-native-screens', () => {
+  const RNScreens = jest.requireActual('react-native-screens');
+  return {
+    ...RNScreens,
+    enableScreens: jest.fn(),
+  };
+});
+
+// Mock react-native-paper
+jest.mock('react-native-paper', () => {
+  const Paper = jest.requireActual('react-native-paper');
+  return {
+    ...Paper,
+    // Mock any specific components if needed, e.g., if they have native dependencies
+  };
+});
+
+// Mock @react-navigation/native
+jest.mock('@react-navigation/native', () => {
+  const actualNav = jest.requireActual('@react-navigation/native');
+  return {
+    ...actualNav,
+    useNavigation: () => ({
+      navigate: jest.fn(),
+      dispatch: jest.fn(),
+      goBack: jest.fn(),
+    }),
+    useRoute: () => ({ params: {} }),
+  };
+});
+
+// Mock @react-navigation/stack
+jest.mock('@react-navigation/stack', () => ({
+  createStackNavigator: jest.fn(() => ({
+    Navigator: ({ children }: any) => children,
+    Screen: ({ children }: any) => children,
+  })),
+}));
+
+// Mock @react-navigation/bottom-tabs
+jest.mock('@react-navigation/bottom-tabs', () => ({
+  createBottomTabNavigator: jest.fn(() => ({
+    Navigator: ({ children }: any) => children,
+    Screen: ({ children }: any) => children,
+  })),
+}));
+
+// Mock AWS Rekognition (if you have a separate service for it)
+jest.mock('../utils/awsRekognitionService', () => ({
+  detectFood: jest.fn(() => Promise.resolve([
+    {
+      name: 'apple',
+      confidence: 99,
+      boundingBox: { Width: 0.5, Height: 0.5, Left: 0.25, Top: 0.25 },
+    },
+  ])),
+  // Add other methods as needed
+}));
+
+// Mock other services/utilities as needed
+
+// Global mock for console.error to suppress expected errors during tests
+const originalConsoleError = console.error;
+console.error = (...args: any[]) => {
+  const message = args[0];
+  if (typeof message === 'string' && message.includes('Warning:')) {
+    // Suppress React Native warnings
+    return;
+  }
+  originalConsoleError(...args);
 };
-
-// Mock timers
-jest.useFakeTimers();
-
-// Setup test environment
-beforeEach(() => {
-  jest.clearAllMocks();
-});
-
-afterEach(() => {
-  jest.clearAllTimers();
-});
 

@@ -79,6 +79,7 @@
     "docs:serve": "cd docs && python -m http.server 8000"
   },
   "dependencies": {
+    "@invertase/react-native-apple-authentication": "^2.4.1",
     "@react-native-async-storage/async-storage": "^1.19.5",
     "@react-native-firebase/analytics": "^18.6.2",
     "@react-native-firebase/app": "^18.6.2",
@@ -115,7 +116,12 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
-    "@babel/preset-env": "^7.20.0",
+    "@babel/plugin-proposal-class-properties": "^7.18.6",
+    "@babel/plugin-proposal-private-methods": "^7.18.6",
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "@babel/plugin-transform-runtime": "^7.28.0",
+    "@babel/preset-env": "^7.28.0",
+    "@babel/preset-typescript": "^7.27.1",
     "@babel/runtime": "^7.20.0",
     "@react-native/eslint-config": "^0.72.2",
     "@react-native/metro-config": "^0.72.11",
@@ -164,22 +170,40 @@
   "detox": {
     "testRunner": "jest",
     "runnerConfig": "e2e/config.json",
-    "configurations": {
-      "ios.sim.debug": {
+    "apps": {
+      "ios.debug": {
+        "type": "ios.app",
         "binaryPath": "ios/build/Build/Products/Debug-iphonesimulator/NutriScanPro.app",
-        "build": "xcodebuild -workspace ios/NutriScanPro.xcworkspace -scheme NutriScanPro -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build",
+        "build": "xcodebuild -workspace ios/NutriScanPro.xcworkspace -scheme NutriScanPro -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build"
+      },
+      "android.debug": {
+        "type": "android.app",
+        "binaryPath": "android/app/build/outputs/apk/debug/app-debug.apk",
+        "build": "cd android && ./gradlew assembleDebug assembleAndroidTest -DtestBuildType=debug && cd .."
+      }
+    },
+    "devices": {
+      "simulator": {
         "type": "ios.simulator",
         "device": {
           "type": "iPhone 14"
         }
       },
-      "android.emu.debug": {
-        "binaryPath": "android/app/build/outputs/apk/debug/app-debug.apk",
-        "build": "cd android && ./gradlew assembleDebug assembleAndroidTest -DtestBuildType=debug && cd ..",
+      "emulator": {
         "type": "android.emulator",
         "device": {
           "avdName": "Pixel_4_API_30"
         }
+      }
+    },
+    "configurations": {
+      "ios.sim.debug": {
+        "device": "simulator",
+        "app": "ios.debug"
+      },
+      "android.emu.debug": {
+        "device": "emulator",
+        "app": "android.debug"
       }
     }
   },
